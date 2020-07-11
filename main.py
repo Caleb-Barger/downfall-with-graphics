@@ -51,6 +51,16 @@ class obj_Actor:
                 self.sprite, (self.x*constants.CELL_WIDTH, self.y*constants.CELL_HEIGHT))
 
 
+class obj_Game:
+    def __init__(self):
+
+        self.current_map = map_create()
+        self.current_objects = []
+
+        self.message_history = []
+
+
+
 #  ____                                                           __
 # /\  _`\                                                        /\ \__
 # \ \ \/\_\    ___     ___   _____     ___     ___      __    ___\ \ ,_\   ____
@@ -75,7 +85,7 @@ class com_Creature:
 
     def move(self, dx, dy):
 
-        tile_is_wall = (GAME_MAP[self.owner.x + dx]
+        tile_is_wall = (GAME.current_map[self.owner.x + dx]
                         [self.owner.y + dy].block_path == True)
 
         target = map_check_for_creatures(
@@ -170,7 +180,7 @@ def map_check_for_creatures(x, y, exclude_object=None):
 
     if exclude_object:
         # check objlist to find creature at that location that is not excluded
-        for obj in GAME_OBJECTS:
+        for obj in GAME.current_objects:
             if (obj is not exclude_object and
                 obj.x == x and
                 obj.y == y and
@@ -183,7 +193,7 @@ def map_check_for_creatures(x, y, exclude_object=None):
 
     else:
         # check objlist to find any creature at that location
-        for obj in GAME_OBJECTS:
+        for obj in GAME.current_objects:
             if (obj is not exclude_object and
                 obj.x == x and
                 obj.y == y and
@@ -232,10 +242,10 @@ def draw_game():
     SURFACE_MAIN.fill(constants.COLOR_DEFAULT_BG)
 
     # draw the map
-    draw_map(GAME_MAP)
+    draw_map(GAME.current_map)
 
     # draw obj's
-    for obj in GAME_OBJECTS:
+    for obj in GAME.current_objects:
         obj.draw()
 
     draw_debug()
@@ -281,10 +291,10 @@ def draw_debug():
 
 def draw_messages():
     
-    if len(GAME_MESSAGES) <= constants.NUM_MESSAGES:
-        to_draw = GAME_MESSAGES # <--- MAGIC NUMBER FIX THIS LATER!!!
+    if len(GAME.message_history) <= constants.NUM_MESSAGES:
+        to_draw = GAME.message_history # <--- MAGIC NUMBER FIX THIS LATER!!!
     else:
-        to_draw = GAME_MESSAGES[-constants.NUM_MESSAGES:]
+        to_draw = GAME.message_history[-constants.NUM_MESSAGES:]
 
     text_height = helper_text_height(constants.FONT_MESSAGE_TEXT)
 
@@ -366,7 +376,7 @@ def main_game_loop():
             game_quit = True
 
         if player_action != "no-action":
-            for obj in GAME_OBJECTS:
+            for obj in GAME.current_objects:
                 if obj.ai:
                     obj.ai.take_turn()
 
@@ -380,18 +390,17 @@ def main_game_loop():
 def game_initalize():
     '''This function initalizes the main window in pygame'''
 
-    global SURFACE_MAIN, GAME_MAP, PLAYER, ENEMY, GAME_OBJECTS, FOV_CALCULATE, CLOCK, GAME_MESSAGES
+    global SURFACE_MAIN, GAME, CLOCK, FOV_CALCULATE, PLAYER, ENEMY
 
     pygame.init()
-
-    CLOCK = pygame.time.Clock()
 
     SURFACE_MAIN = pygame.display.set_mode(
         (constants.MAP_WIDTH*constants.CELL_WIDTH, constants.MAP_HEIGHT*constants.CELL_HEIGHT))
 
-    GAME_MAP = map_create()
+    GAME = obj_Game()
 
-    GAME_MESSAGES = []
+    CLOCK = pygame.time.Clock()
+
 
     FOV_CALCULATE = True
 
@@ -404,7 +413,7 @@ def game_initalize():
     ENEMY = obj_Actor(10, 5, "Crab", constants.S_ENEMY,
                       creature=creature_com2, ai=ai_com)
 
-    GAME_OBJECTS = [PLAYER, ENEMY]
+    GAME.current_objects = [PLAYER, ENEMY]
 
 
 def game_handle_keys():
@@ -438,7 +447,7 @@ def game_handle_keys():
 
 def game_message(game_msg, msg_color):
     
-    GAME_MESSAGES.append((game_msg, msg_color))
+    GAME.message_history.append((game_msg, msg_color))
 
 
 if __name__ == '__main__':
