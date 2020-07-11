@@ -45,7 +45,7 @@ class obj_Actor:
 
     def draw(self):
         is_visable = libtcod.map_is_in_fov(FOV_MAP, self.x, self.y)
-        
+
         if is_visable:
             SURFACE_MAIN.blit(
                 self.sprite, (self.x*constants.CELL_WIDTH, self.y*constants.CELL_HEIGHT))
@@ -89,13 +89,12 @@ class com_Creature:
             self.owner.y += dy
 
     def attack(self, target, damage):
-        print(
-            f"{self.name_instance} attacks {target.creature.name_instance} for {damage} damage!")
+        game_message(f"{self.name_instance} attacks {target.creature.name_instance} for {damage} damage!", constants.COLOR_WHITE)
         target.creature.take_damage(damage)
 
     def take_damage(self, damage):
         self.hp -= damage
-        print(f"{self.name_instance}'s health is {self.hp}/{self.max_hp}")
+        game_message(f"{self.name_instance}'s health is {self.hp}/{self.max_hp}", constants.COLOR_RED)
 
         if self.hp <= 0:
             if self.death_function is not None:
@@ -127,7 +126,8 @@ class ai_Test:
 
 def death_monstor(monstor):
     ''' On death, most monstors stop moving'''
-    print(f"{monstor.creature.name_instance} is dead")
+    # print(f"{monstor.creature.name_instance} is dead")
+    game_message(f"{monstor.creature.name_instance} is dead", constants.COLOR_GREY)
     monstor.creature = None
     monstor.ai = None
 
@@ -155,9 +155,9 @@ def map_create():
         new_map[0][y].block_path = True
         new_map[constants.MAP_WIDTH-1][y].block_path = True
 
+    new_map[10][10].block_path = True
+    new_map[12][8].block_path = True
     new_map[5][5].block_path = True
-    new_map[7][7].block_path = True
-    new_map[10][16].block_path = True
 
     map_make_fov(new_map)
 
@@ -194,6 +194,7 @@ def map_check_for_creatures(x, y, exclude_object=None):
             if target:
                 return target
 
+
 def map_make_fov(incoming_map):
     global FOV_MAP
 
@@ -201,16 +202,17 @@ def map_make_fov(incoming_map):
 
     for y in range(constants.MAP_HEIGHT):
         for x in range(constants.MAP_WIDTH):
-            libtcod.map_set_properties(FOV_MAP, x, y, 
-                not incoming_map[x][y].block_path, not incoming_map[x][y].block_path)
+            libtcod.map_set_properties(FOV_MAP, x, y,
+                                       not incoming_map[x][y].block_path, not incoming_map[x][y].block_path)
+
 
 def map_calculate_fov():
     global FOV_CALCULATE
-    
+
     if FOV_CALCULATE:
         FOV_CALCULATE = False
         libtcod.map_compute_fov(FOV_MAP, PLAYER.x, PLAYER.y, constants.TORCH_RADIUS, constants.FOV_LIGHT_WALLS,
-            constants.FOV_ALGO)
+                                constants.FOV_ALGO)
 
 
 #  ____
@@ -236,6 +238,9 @@ def draw_game():
     for obj in GAME_OBJECTS:
         obj.draw()
 
+    draw_debug()
+    draw_messages()
+
     # update the display
     pygame.display.flip()
 
@@ -258,7 +263,7 @@ def draw_map(map):
                     # Draw the floor
                     SURFACE_MAIN.blit(
                         constants.S_FLOOR, (constants.CELL_WIDTH*x, constants.CELL_HEIGHT*y))
-            
+
             elif map[x][y].explored:
                 if map[x][y].block_path:
                     # Draw a wall
@@ -270,16 +275,80 @@ def draw_map(map):
                         constants.S_FLOOREXPLORED, (constants.CELL_WIDTH*x, constants.CELL_HEIGHT*y))
 
 
+def draw_debug():
+    
+    draw_text(SURFACE_MAIN, f"FPS: {str(int(CLOCK.get_fps()))}", (0, 0), constants.COLOR_WHITE, constants.COLOR_BLACK)
 
-#                                    __
-#  /'\_/`\            __            /\ \
-# /\      \     __   /\_\    ___    \ \ \        ___     ___   _____
-# \ \ \__\ \  /'__`\ \/\ \ /' _ `\   \ \ \  __  / __`\  / __`\/\ '__`\
-#  \ \ \_/\ \/\ \L\.\_\ \ \/\ \/\ \   \ \ \L\ \/\ \L\ \/\ \L\ \ \ \L\ \
-#   \ \_\\ \_\ \__/.\_\\ \_\ \_\ \_\   \ \____/\ \____/\ \____/\ \ ,__/
-#    \/_/ \/_/\/__/\/_/ \/_/\/_/\/_/    \/___/  \/___/  \/___/  \ \ \/
-#                                                                \ \_\
-#                                                                 \/_/
+def draw_messages():
+    
+    if len(GAME_MESSAGES) <= constants.NUM_MESSAGES:
+        to_draw = GAME_MESSAGES # <--- MAGIC NUMBER FIX THIS LATER!!!
+    else:
+        to_draw = GAME_MESSAGES[-constants.NUM_MESSAGES:]
+
+    text_height = helper_text_height(constants.FONT_MESSAGE_TEXT)
+
+    start_y = (constants.MAP_HEIGHT*constants.CELL_HEIGHT - (constants.NUM_MESSAGES * text_height)) - 10
+
+    i = 0
+    
+    for message, color in to_draw:
+
+        draw_text(SURFACE_MAIN, message, (0, start_y + (i * text_height)), color, constants.COLOR_BLACK)
+
+        i += 1
+        
+
+def draw_text(display_surface, text_to_display, T_coords, text_color, back_color=None):
+    
+    ''' this function takes in some text and displays it on surface arg'''
+
+    text_surface, text_rect = helper_text_objects(text_to_display, text_color, back_color)
+
+    text_rect.topleft = T_coords
+
+    display_surface.blit(text_surface, text_rect)
+
+
+#  __  __          ___
+# /\ \/\ \        /\_ \
+# \ \ \_\ \     __\//\ \    _____      __   _ __   ____
+#  \ \  _  \  /'__`\\ \ \  /\ '__`\  /'__`\/\`'__\/',__\
+#   \ \ \ \ \/\  __/ \_\ \_\ \ \L\ \/\  __/\ \ \//\__, `\
+#    \ \_\ \_\ \____\/\____\\ \ ,__/\ \____\\ \_\\/\____/
+#     \/_/\/_/\/____/\/____/ \ \ \/  \/____/ \/_/ \/___/
+#                             \ \_\
+#                              \/_/
+
+
+def helper_text_objects(incoming_text, incoming_color, incoming_bg):
+    ''' renders out the text and gives a surf and rect'''
+
+    if incoming_bg:
+        Text_surface = constants.FONT_DEBUG_MESSAGE.render(
+            incoming_text, False, incoming_color, incoming_bg)
+        
+    else:
+        Text_surface = constants.FONT_DEBUG_MESSAGE.render(
+            incoming_text, False, incoming_color)
+
+    return Text_surface, Text_surface.get_rect()
+
+def helper_text_height(font):
+    
+    font_object = font.render('g', False, (0, 0, 0))
+    font_rect = font_object.get_rect()
+    
+    return font_rect.height
+
+
+#  ____
+# /\  _`\
+# \ \ \L\_\     __      ___ ___      __
+#  \ \ \L_L   /'__`\  /' __` __`\  /'__`\
+#   \ \ \/, \/\ \L\.\_/\ \/\ \/\ \/\  __/
+#    \ \____/\ \__/.\_\ \_\ \_\ \_\ \____\
+#     \/___/  \/__/\/_/\/_/\/_/\/_/\/____/
 
 
 def main_game_loop():
@@ -303,61 +372,39 @@ def main_game_loop():
 
         draw_game()
 
+        CLOCK.tick(constants.GAME_FPS)
+
     pygame.quit()
     exit()
-
-
-#  ______              __             ___
-# /\__  _\          __/\ \__         /\_ \    __
-# \/_/\ \/     ___ /\_\ \ ,_\    __  \//\ \  /\_\  ____      __
-#    \ \ \   /' _ `\/\ \ \ \/  /'__`\  \ \ \ \/\ \/\_ ,`\  /'__`\
-#     \_\ \__/\ \/\ \ \ \ \ \_/\ \L\.\_ \_\ \_\ \ \/_/  /_/\  __/
-#     /\_____\ \_\ \_\ \_\ \__\ \__/.\_\/\____\\ \_\/\____\ \____\
-#     \/_____/\/_/\/_/\/_/\/__/\/__/\/_/\/____/ \/_/\/____/\/____/
-
 
 def game_initalize():
     '''This function initalizes the main window in pygame'''
 
-    global SURFACE_MAIN, GAME_MAP, PLAYER, ENEMY, GAME_OBJECTS, FOV_CALCULATE
+    global SURFACE_MAIN, GAME_MAP, PLAYER, ENEMY, GAME_OBJECTS, FOV_CALCULATE, CLOCK, GAME_MESSAGES
 
     pygame.init()
+
+    CLOCK = pygame.time.Clock()
 
     SURFACE_MAIN = pygame.display.set_mode(
         (constants.MAP_WIDTH*constants.CELL_WIDTH, constants.MAP_HEIGHT*constants.CELL_HEIGHT))
 
     GAME_MAP = map_create()
 
+    GAME_MESSAGES = []
+
     FOV_CALCULATE = True
 
-    creature_com1 = com_Creature("greg")
+    creature_com1 = com_Creature("Caleb")
     PLAYER = obj_Actor(3, 3, "Python", constants.S_PLAYER,
                        creature=creature_com1)
 
-    creature_com2 = com_Creature("Jackie", death_function=death_monstor)
+    creature_com2 = com_Creature("Kevin", death_function=death_monstor)
     ai_com = ai_Test()
     ENEMY = obj_Actor(10, 5, "Crab", constants.S_ENEMY,
                       creature=creature_com2, ai=ai_com)
 
     GAME_OBJECTS = [PLAYER, ENEMY]
-
-
-#  __  __
-# /\ \/\ \
-# \ \ \/'/'     __   __  __
-#  \ \ , <    /'__`\/\ \/\ \
-#   \ \ \\`\ /\  __/\ \ \_\ \
-#    \ \_\ \_\ \____\\/`____ \
-#     \/_/\/_/\/____/ `/___/> \
-#                        /\___/
-#                        \/__/
-#  __  __                       __   ___
-# /\ \/\ \                     /\ \ /\_ \
-# \ \ \_\ \     __      ___    \_\ \\//\ \      __   _ __
-#  \ \  _  \  /'__`\  /' _ `\  /'_` \ \ \ \   /'__`\/\`'__\
-#   \ \ \ \ \/\ \L\.\_/\ \/\ \/\ \L\ \ \_\ \_/\  __/\ \ \/
-#    \ \_\ \_\ \__/.\_\ \_\ \_\ \___,_\/\____\ \____\\ \_\
-#     \/_/\/_/\/__/\/_/\/_/\/_/\/__,_ /\/____/\/____/ \/_/
 
 
 def game_handle_keys():
@@ -387,6 +434,11 @@ def game_handle_keys():
                 return "player-moved"
 
     return "no-action"
+
+
+def game_message(game_msg, msg_color):
+    
+    GAME_MESSAGES.append((game_msg, msg_color))
 
 
 if __name__ == '__main__':
